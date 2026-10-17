@@ -292,7 +292,10 @@ jobs:
           set -euo pipefail
           . tools/linuxfs/debian-image.env
           image=public.ecr.aws/docker/library/debian:bullseye
-          if gh release download "$DEBIAN_IMAGE_TAG" -R "$GITHUB_REPOSITORY" -p "$DEBIAN_IMAGE_ASSET" -O /tmp/debian-image.tar.zst \
+          # A fork has no ci-debian-image release of its own; use the repo that publishes it.
+          repo="$GITHUB_REPOSITORY"
+          gh release view "$DEBIAN_IMAGE_TAG" -R "$repo" >/dev/null 2>&1 || repo=Droid-Deck/DroidDeck
+          if gh release download "$DEBIAN_IMAGE_TAG" -R "$repo" -p "$DEBIAN_IMAGE_ASSET" -O /tmp/debian-image.tar.zst \
              && { [ -z "$DEBIAN_IMAGE_SHA256" ] || echo "$DEBIAN_IMAGE_SHA256  /tmp/debian-image.tar.zst" | sha256sum -c -; }; then
             zstd -dc /tmp/debian-image.tar.zst | docker load
             rm -f /tmp/debian-image.tar.zst
@@ -300,6 +303,7 @@ jobs:
             echo "::warning::the hosted Debian image could not be fetched; pulling from the registry instead"
             for attempt in 1 2 3 4 5; do
               docker pull "$image" && break
+              docker pull mirror.gcr.io/library/debian:bullseye && docker tag mirror.gcr.io/library/debian:bullseye "$image" && break
               [ "$attempt" -lt 5 ] || { echo "::error::could not pull $image after $attempt attempts"; exit 1; }
               echo "pull attempt $attempt failed (registry busy?); retrying in $((attempt * 30)) s"
               sleep $((attempt * 30))
