@@ -78,7 +78,6 @@ import com.droiddeck.launcher.gpu.FrameGen
 import com.droiddeck.launcher.gpu.Lossless
 import com.droiddeck.launcher.input.SecondScreenDisplay
 import com.droiddeck.launcher.core.DownloadSource
-import com.droiddeck.launcher.core.PhantomProcessLimit
 import com.droiddeck.launcher.core.PhantomProcessStatus
 import com.droiddeck.launcher.session.SessionPrefs
 import kotlin.math.roundToInt
@@ -129,7 +128,6 @@ class FrontEndState(
     val oscMode: String = SessionPrefs.OSC_AUTO,
     val controller: com.droiddeck.launcher.input.ControllerPrefs.Settings? = null,
     val phantomProcessStatus: PhantomProcessStatus = PhantomProcessStatus.NOT_APPLICABLE,
-    val showPhantomGate: Boolean = false,
     val orientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
     val launcherFullscreen: Boolean = true,
     val downloadSource: String = DownloadSource.MODE_AUTO,
@@ -224,7 +222,6 @@ class FrontEndActions(
     val onWirelessAdbApply: (String, Int, Boolean, (String?) -> Unit) -> Unit,
     val onSetPhantomProcessLimit: (Boolean, (String?) -> Unit) -> Unit,
     val onCopyPhantomCommand: (Boolean) -> Unit = {},
-    val onDismissPhantomGate: () -> Unit = {},
     val onStartWirelessAdbPairing: () -> Unit = {},
     val onOpenNotificationSettings: () -> Unit = {},
     val controller: ControllerActions? = null,
@@ -391,8 +388,7 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
     val colors = MaterialTheme.colorScheme
     val pal = LocalPalette.current
     val ctx = LocalContext.current
-    val phantomGateVisible = s.showPhantomGate && PhantomProcessLimit.blocksSteam(s.phantomProcessStatus)
-    val processSettingsPageVisible = phantomGateVisible || showWirelessAdbFix || showDeveloperDisplayChoice
+    val processSettingsPageVisible = showWirelessAdbFix || showDeveloperDisplayChoice
     val requestDeveloperOptions = {
         if (s.secondScreenDisplays.isEmpty()) a.onOpenDeveloperOptions(null)
         else showDeveloperDisplayChoice = true
@@ -400,14 +396,6 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
     val requestWirelessAdbFix: (Boolean) -> Unit = { enabled ->
         wirelessAdbDesiredEnabled = enabled
         showWirelessAdbFix = true
-    }
-    LaunchedEffect(s.showPhantomGate, s.phantomProcessStatus) {
-        if (phantomGateVisible) {
-            while (true) {
-                kotlinx.coroutines.delay(2_000)
-                a.onRefreshPhantomStatus()
-            }
-        }
     }
     val pageBack = { if (!Hops.back(a.onPageBack)) a.onPageBack() }
     BackHandler(enabled = !processSettingsPageVisible && s.pageKey != null && page != null) { pageBack() }
@@ -556,22 +544,6 @@ private fun FrontEndScreenBody(s: FrontEndState, a: FrontEndActions, page: (@Com
                 },
                 onDismiss = { appToChooseDisplay = null },
             )
-        }
-        if (phantomGateVisible && !showWirelessAdbFix) {
-            Box(Modifier.fillMaxSize().background(colors.background)) {
-                PhantomProcessGatePage(
-                    status = s.phantomProcessStatus,
-                    onDismiss = a.onDismissPhantomGate,
-                    onOpenDeveloperOptions = requestDeveloperOptions,
-                    onFixWithWirelessDebugging = {
-                        a.onStartWirelessAdbPairing()
-                        requestDeveloperOptions()
-                    },
-                    onEnterAddressManually = { requestWirelessAdbFix(false) },
-                    onCopyCommand = { a.onCopyPhantomCommand(false) },
-                    onOpenNotificationSettings = a.onOpenNotificationSettings,
-                )
-            }
         }
         if (showWirelessAdbFix) {
             Box(Modifier.fillMaxSize().background(colors.background)) {

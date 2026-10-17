@@ -100,9 +100,6 @@ object PhantomProcessLimit {
 
     fun hasDeveloperToggle(sdk: Int = Build.VERSION.SDK_INT): Boolean = sdk >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 
-    fun blocksSteam(status: PhantomProcessStatus): Boolean =
-        status != PhantomProcessStatus.NOT_APPLICABLE && status != PhantomProcessStatus.DISABLED
-
     fun title(context: Context, status: PhantomProcessStatus): String = context.getString(when (status) {
         PhantomProcessStatus.ENABLED -> R.string.phantom_title_on
         PhantomProcessStatus.UNSET -> R.string.phantom_title_unset
@@ -116,11 +113,6 @@ object PhantomProcessLimit {
             context.getString(R.string.phantom_instructions_fix, fixSentence(context))
         PhantomProcessStatus.DISABLED -> context.getString(R.string.phantom_instructions_off)
         PhantomProcessStatus.NOT_APPLICABLE -> context.getString(R.string.phantom_instructions_not_applicable)
-    }
-
-    fun gateInstructions(context: Context, status: PhantomProcessStatus): String = when (status) {
-        PhantomProcessStatus.ENABLED, PhantomProcessStatus.UNSET, PhantomProcessStatus.UNREADABLE -> fixSentence(context)
-        else -> instructions(context, status)
     }
 
     fun fixSentence(context: Context, sdk: Int = Build.VERSION.SDK_INT): String =

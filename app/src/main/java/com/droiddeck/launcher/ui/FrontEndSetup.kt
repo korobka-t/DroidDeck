@@ -163,7 +163,6 @@ internal fun SetupPanel(
     val gpu = remember { com.droiddeck.launcher.gpu.GpuInfo.detect() }
     val gpuOk = gpu.support == com.droiddeck.launcher.gpu.GpuInfo.Support.TESTED
     val gpuName = remember { DeviceSupport.gpuName(ctx) }
-    val limitBlocks = PhantomProcessLimit.blocksSteam(s.phantomProcessStatus)
     val signedIn = s.offlineAccount != null
     var showLimitDetails by rememberSaveable { mutableStateOf(false) }
     var editSgdbKey by remember { mutableStateOf(false) }
@@ -195,7 +194,8 @@ internal fun SetupPanel(
     }
     val wide = !LocalNarrowPane.current
     val runtimeOk = s.ready && !s.busy && !s.removalPending
-    val checks = listOf(gpuOk, runtimeOk, !limitBlocks, signedIn)
+    // The Android child-process limit is no longer checked: it never gates Setup readiness.
+    val checks = listOf(gpuOk, runtimeOk, true, signedIn)
     val passing = checks.count { it }
     var showChecks by rememberSaveable { mutableStateOf(false) }
     Rise(0, Modifier.fillMaxSize()) {
@@ -254,7 +254,7 @@ internal fun SetupPanel(
                         }
                         val limitCheck: @Composable (Boolean) -> Unit = { divider ->
                             CheckRow(
-                                if (limitBlocks) CheckState.WARN else CheckState.OK,
+                                CheckState.OK,
                                 stringResource(R.string.setup_limit),
                                 when (s.phantomProcessStatus) {
                                     PhantomProcessStatus.ENABLED -> stringResource(R.string.setup_limit_on)
@@ -264,24 +264,21 @@ internal fun SetupPanel(
                                 },
                                 divider = divider && !showLimitDetails,
                             ) {
-                                if (limitBlocks) PrimaryButton(if (showLimitDetails) stringResource(R.string.common_hide) else stringResource(R.string.setup_fix_it), compact = true) { showLimitDetails = !showLimitDetails }
-                                else if (s.phantomProcessStatus != PhantomProcessStatus.NOT_APPLICABLE) {
+                                if (s.phantomProcessStatus != PhantomProcessStatus.NOT_APPLICABLE) {
                                     SecondaryButton(if (showLimitDetails) stringResource(R.string.common_hide) else stringResource(R.string.setup_details), compact = true) { showLimitDetails = !showLimitDetails }
                                 }
                             }
                             AnimatedVisibility(showLimitDetails, enter = expandVertically(Motion.sp(1f)) + fadeIn(Motion.sp(1f)), exit = shrinkVertically(Motion.sp(1f)) + fadeOut(Motion.sp(1f))) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(start = 56.dp, end = 14.dp, top = 4.dp, bottom = 10.dp)) {
                                     Text(
-                                        if (limitBlocks) PhantomProcessLimit.gateInstructions(ctx, s.phantomProcessStatus)
-                                        else PhantomProcessLimit.instructions(ctx, s.phantomProcessStatus),
+                                        PhantomProcessLimit.instructions(ctx, s.phantomProcessStatus),
                                         fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp),
                                     )
                                     Actions {
-                                        if (limitBlocks) {
-                                            PrimaryButton(stringResource(R.string.setup_dev_options), compact = true, onClick = onOpenDeveloperOptions)
-                                            SecondaryButton(stringResource(R.string.setup_use_wireless), compact = true, enabled = !processLimitBusy) { setProcessLimit(false) }
-                                            SecondaryButton(stringResource(R.string.setup_check_again), compact = true, onClick = a.onRefreshPhantomStatus)
-                                        } else if (s.phantomProcessStatus == PhantomProcessStatus.DISABLED) {
+                                        SecondaryButton(stringResource(R.string.setup_dev_options), compact = true, onClick = onOpenDeveloperOptions)
+                                        SecondaryButton(stringResource(R.string.setup_use_wireless), compact = true, enabled = !processLimitBusy) { setProcessLimit(false) }
+                                        SecondaryButton(stringResource(R.string.setup_check_again), compact = true, onClick = a.onRefreshPhantomStatus)
+                                        if (s.phantomProcessStatus == PhantomProcessStatus.DISABLED) {
                                             SecondaryButton(stringResource(R.string.setup_limit_turn_on), compact = true, enabled = !processLimitBusy) { setProcessLimit(true) }
                                         }
                                     }
@@ -311,7 +308,6 @@ internal fun SetupPanel(
                             listOfNotNull(
                                 gpu.displayName(ctx),
                                 s.installed?.let { stringResource(R.string.setup_ready_runtime, it) },
-                                stringResource(R.string.setup_ready_limit_off).takeIf { !limitBlocks },
                                 s.offlineAccount?.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.setup_ready_signed_in, it) },
                             ).joinToString(" · "),
                             open = showChecks, onDetails = { showChecks = !showChecks },

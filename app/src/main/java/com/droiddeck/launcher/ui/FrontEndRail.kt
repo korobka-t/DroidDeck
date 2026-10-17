@@ -80,7 +80,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import com.droiddeck.launcher.core.PhantomProcessLimit
 
 
 internal val AttentionAmber = Color(0xFFFFB547)
@@ -93,8 +92,7 @@ internal fun SideRail(
     val colors = MaterialTheme.colorScheme
     val compact = LocalConfiguration.current.screenHeightDp < 420
     val iconOnly = isNarrowScreen()
-    val setupNeedsAttention = !s.ready || (s.available != null && s.available != s.installed) ||
-        PhantomProcessLimit.blocksSteam(s.phantomProcessStatus)
+    val setupNeedsAttention = !s.ready || (s.available != null && s.available != s.installed)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.width(if (iconOnly) 64.dp else 92.dp).background(colors.surface).padding(vertical = if (compact) 8.dp else 12.dp),

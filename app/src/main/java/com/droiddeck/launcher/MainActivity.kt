@@ -150,7 +150,6 @@ class MainActivity : ComponentActivity() {
     private var guestHostname by mutableStateOf(SessionPrefs.DEFAULT_GUEST_HOSTNAME)
     private var phantomWarning by mutableStateOf<String?>(null)
     private var phantomProcessStatus by mutableStateOf(PhantomProcessStatus.NOT_APPLICABLE)
-    private var showPhantomGate by mutableStateOf(false)
     private var directAudio by mutableStateOf(false)
     private var picturePosition by mutableStateOf("center")
     private var stretch16x9 by mutableStateOf(false)
@@ -519,7 +518,7 @@ class MainActivity : ComponentActivity() {
         return startSession(Intent(this, SessionActivity::class.java)
                 .putExtra(SessionActivity.EXTRA_RETURN_HOME, returnHome)
                 .putExtra(SessionService.EXTRA_STEAM_URL,
-                com.droiddeck.launcher.frontend.GameLaunchLink.steamUrl(game.gameIdString)), steamSession = true)
+                com.droiddeck.launcher.frontend.GameLaunchLink.steamUrl(game.gameIdString)))
     }
 
     private fun handleGameLink(games: List<Library.SteamGame>) {
@@ -616,7 +615,6 @@ class MainActivity : ComponentActivity() {
                         controller = controllerSettings,
                         updates = updates.state(),
                         phantomProcessStatus = phantomProcessStatus,
-                        showPhantomGate = showPhantomGate,
                         orientation = orientation,
                         launcherFullscreen = launcherFullscreen,
                         downloadSource = downloadSource,
@@ -638,13 +636,13 @@ class MainActivity : ComponentActivity() {
                         onPlay = { playSteam() },
                         onSteamUrl = { url ->
                             if (!SessionState.running) startSession(
-                                Intent(this, SessionActivity::class.java).putExtra(SessionService.EXTRA_STEAM_URL, url), steamSession = true,
+                                Intent(this, SessionActivity::class.java).putExtra(SessionService.EXTRA_STEAM_URL, url),
                             )
                         },
                         onPlayDesktopUi = {
                             startSession(Intent(this, SessionActivity::class.java)
                                 .putExtra(SessionService.EXTRA_MODE, SessionService.MODE_STEAM)
-                                .putExtra(SessionService.EXTRA_STEAM_UI, "desktop"), steamSession = true)
+                                .putExtra(SessionService.EXTRA_STEAM_UI, "desktop"))
                         },
                         onSteamGame = { g ->
                             if (shortcutPicker) chooseGameShortcut(g)
@@ -866,7 +864,6 @@ class MainActivity : ComponentActivity() {
                             )
                             android.widget.Toast.makeText(this, R.string.main_adb_copied, android.widget.Toast.LENGTH_SHORT).show()
                         },
-                        onDismissPhantomGate = { showPhantomGate = false },
                         onStartWirelessAdbPairing = { WirelessAdbPairingService.start(this) },
                         onOpenNotificationSettings = {
                             startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
@@ -989,7 +986,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startSteamSession() {
-        startSession(Intent(this, SessionActivity::class.java), steamSession = true)
+        startSession(Intent(this, SessionActivity::class.java))
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -1733,17 +1730,13 @@ class MainActivity : ComponentActivity() {
         install(release)
     }
 
-    private fun startSession(intent: Intent, steamSession: Boolean = false): Boolean {
+    private fun startSession(intent: Intent): Boolean {
         if (busy || LinuxRuntimeInstaller.isBusy()) return false
         if (com.droiddeck.launcher.storage.StorageState.cleaning) {
             android.widget.Toast.makeText(this, R.string.storage_cleanup_busy, android.widget.Toast.LENGTH_SHORT).show()
             return false
         }
         refreshPhantomStatus()
-        if (steamSession && PhantomProcessLimit.blocksSteam(phantomProcessStatus)) {
-            showPhantomGate = true
-            return false
-        }
         val warn = installed == null && !com.droiddeck.launcher.core.DeviceSupport.adreno()
         if (warn && available != null) { showNonAdreno = available; return false }
         startActivity(intent)
@@ -1752,7 +1745,8 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshPhantomStatus() {
         phantomProcessStatus = PhantomProcessLimit.read(this)
-        phantomWarning = if (PhantomProcessLimit.blocksSteam(phantomProcessStatus)) {
+        // Advisory only: the child-process limit never gates Setup or a session start.
+        phantomWarning = if (phantomProcessStatus == PhantomProcessStatus.ENABLED) {
             getString(
                 R.string.phantom_warning, PhantomProcessLimit.title(this, phantomProcessStatus),
                 PhantomProcessLimit.instructions(this, phantomProcessStatus), PhantomProcessLimit.adbCommand(),
